@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.main.category.dto.CategoryDto;
 import ru.practicum.main.category.dto.NewCategoryDto;
+import ru.practicum.main.event.EventRepository;
+import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.util.OffsetPageRequest;
 
@@ -18,6 +20,7 @@ import java.util.List;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final EventRepository eventRepository;
 
     @Transactional
     public CategoryDto add(NewCategoryDto dto) {
@@ -35,6 +38,9 @@ public class CategoryService {
     @Transactional
     public void delete(long catId) {
         Category category = getEntity(catId);
+        if (eventRepository.existsByCategoryId(catId)) {
+            throw new ConflictException("The category is not empty");
+        }
         categoryRepository.delete(category);
         categoryRepository.flush();
     }
