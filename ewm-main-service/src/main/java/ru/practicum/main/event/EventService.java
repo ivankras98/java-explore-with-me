@@ -17,12 +17,17 @@ import ru.practicum.main.event.dto.UpdateEventUserRequest;
 import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
+import ru.practicum.main.request.EventRequestCount;
+import ru.practicum.main.request.RequestRepository;
+import ru.practicum.main.request.RequestStatus;
 import ru.practicum.main.user.User;
 import ru.practicum.main.user.UserRepository;
 import ru.practicum.main.util.OffsetPageRequest;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +39,7 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final RequestRepository requestRepository;
     private final CategoryService categoryService;
 
     @Transactional
@@ -164,16 +170,26 @@ public class EventService {
     }
 
     private List<EventFullDto> toFullDtos(List<Event> events) {
-        // Шаги 4 и 5: здесь будут подставлены подтверждённые заявки и просмотры одним запросом на весь список
+        Map<Long, Long> confirmed = getConfirmedRequests(events);
+        // Шаг 5: здесь же будут подставлены просмотры из статистики одним запросом
         return events.stream()
-                .map(e -> EventMapper.toFullDto(e, 0L, 0L))
+                .map(e -> EventMapper.toFullDto(e, confirmed.getOrDefault(e.getId(), 0L), 0L))
                 .toList();
     }
 
     private List<EventShortDto> toShortDtos(List<Event> events) {
-        // Шаги 4 и 5: то же самое для краткой формы
+        Map<Long, Long> confirmed = getConfirmedRequests(events);
         return events.stream()
-                .map(e -> EventMapper.toShortDto(e, 0L, 0L))
+                .map(e -> EventMapper.toShortDto(e, confirmed.getOrDefault(e.getId(), 0L), 0L))
                 .toList();
+    }
+
+    private Map<Long, Long> getConfirmedRequests(List<Event> events) {
+        if (events.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = events.stream().map(Event::getId).toList();
+        return requestRepository.countGroupedByEvent(ids, RequestStatus.CONFIRMED).stream()
+                .collect(Collectors.toMap(EventRequestCount::getEventId, EventRequestCount::getCnt));
     }
 }
