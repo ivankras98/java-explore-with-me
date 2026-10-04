@@ -1,7 +1,11 @@
 package ru.practicum.main.event;
 
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
+import ru.practicum.main.request.Request;
+import ru.practicum.main.request.RequestStatus;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -33,6 +37,45 @@ public final class EventSpecifications {
             }
             if (rangeEnd != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("eventDate"), rangeEnd));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    public static Specification<Event> publicFilter(String text,
+                                                    List<Long> categories,
+                                                    Boolean paid,
+                                                    LocalDateTime rangeStart,
+                                                    LocalDateTime rangeEnd,
+                                                    boolean onlyAvailable) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("state"), EventState.PUBLISHED));
+            if (text != null && !text.isBlank()) {
+                String pattern = "%" + text.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("annotation")), pattern),
+                        cb.like(cb.lower(root.get("description")), pattern)));
+            }
+            if (categories != null && !categories.isEmpty()) {
+                predicates.add(root.get("category").get("id").in(categories));
+            }
+            if (paid != null) {
+                predicates.add(cb.equal(root.get("paid"), paid));
+            }
+            predicates.add(cb.greaterThanOrEqualTo(root.get("eventDate"), rangeStart));
+            if (rangeEnd != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("eventDate"), rangeEnd));
+            }
+            if (onlyAvailable) {
+                Subquery<Long> confirmed = query.subquery(Long.class);
+                Root<Request> request = confirmed.from(Request.class);
+                confirmed.select(cb.count(request))
+                        .where(cb.equal(request.get("eventId"), root.get("id")),
+                                cb.equal(request.get("status"), RequestStatus.CONFIRMED));
+                predicates.add(cb.or(
+                        cb.equal(root.get("participantLimit"), 0),
+                        cb.greaterThan(root.<Integer>get("participantLimit").as(Long.class), confirmed)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
