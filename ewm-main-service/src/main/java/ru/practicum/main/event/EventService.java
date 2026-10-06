@@ -49,6 +49,7 @@ public class EventService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User with id=" + userId + " was not found"));
         Category category = categoryService.getEntity(dto.getCategory());
+        checkNotInPast(dto.getEventDate());
         checkEventDate(dto.getEventDate(), USER_MIN_HOURS);
         Event saved = eventRepository.save(EventMapper.toEntity(dto, category, user, LocalDateTime.now()));
         return toFullDto(saved);
@@ -72,6 +73,7 @@ public class EventService {
             throw new ConflictException("Only pending or canceled events can be changed");
         }
         if (request.getEventDate() != null) {
+            checkNotInPast(request.getEventDate());
             checkEventDate(request.getEventDate(), USER_MIN_HOURS);
         }
         applyUpdate(event, request);
@@ -99,6 +101,9 @@ public class EventService {
     public EventFullDto updateByAdmin(long eventId, UpdateEventAdminRequest request) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event with id=" + eventId + " was not found"));
+        if (request.getEventDate() != null) {
+            checkNotInPast(request.getEventDate());
+        }
         applyUpdate(event, request);
         StateActionAdmin action = request.getStateAction();
         if (action == StateActionAdmin.PUBLISH_EVENT) {
@@ -200,6 +205,12 @@ public class EventService {
     private void checkUserExists(long userId) {
         if (!userRepository.existsById(userId)) {
             throw new NotFoundException("User with id=" + userId + " was not found");
+        }
+    }
+
+    private void checkNotInPast(LocalDateTime eventDate) {
+        if (eventDate.isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Field: eventDate. Error: must not be in the past. Value: " + eventDate);
         }
     }
 
