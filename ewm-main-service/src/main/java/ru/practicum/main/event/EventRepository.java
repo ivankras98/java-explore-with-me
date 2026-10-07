@@ -33,4 +33,6 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
     List<Event> findAll(Specification<Event> spec, Sort sort);
 
     boolean existsByCategoryId(Long categoryId);
+
+    boolean existsByIdAndState(Long id, EventState state);
 }
