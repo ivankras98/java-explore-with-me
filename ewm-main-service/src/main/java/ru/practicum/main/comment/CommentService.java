@@ -3,6 +3,7 @@ package ru.practicum.main.comment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.main.comment.dto.CommentDto;
@@ -69,6 +70,32 @@ public class CommentService {
         return commentRepository.findAllByAuthorId(userId, page).stream()
                 .map(CommentMapper::toDto)
                 .toList();
+    }
+
+    public List<CommentDto> getEventComments(long eventId, int from, int size) {
+        if (!eventRepository.existsByIdAndState(eventId, EventState.PUBLISHED)) {
+            throw new NotFoundException("Event with id=" + eventId + " was not found");
+        }
+        Pageable page = new OffsetPageRequest(from, size, NEWEST_FIRST);
+        return commentRepository.findAllByEventId(eventId, page).stream()
+                .map(CommentMapper::toDto)
+                .toList();
+    }
+
+    public List<CommentDto> searchAdmin(List<Long> users, List<Long> events, int from, int size) {
+        Pageable page = new OffsetPageRequest(from, size, NEWEST_FIRST);
+        Specification<Comment> spec = CommentSpecifications.adminFilter(users, events);
+        return commentRepository.findAll(spec, page).getContent().stream()
+                .map(CommentMapper::toDto)
+                .toList();
+    }
+
+    @Transactional
+    public void deleteByAdmin(long commentId) {
+        if (!commentRepository.existsById(commentId)) {
+            throw new NotFoundException("Comment with id=" + commentId + " was not found");
+        }
+        commentRepository.deleteById(commentId);
     }
 
     private Comment findAuthorComment(long userId, long commentId) {
