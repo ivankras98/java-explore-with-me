@@ -56,3 +56,15 @@ CREATE TABLE IF NOT EXISTS compilation_events (
     event_id       BIGINT NOT NULL REFERENCES events (id) ON DELETE CASCADE,
     PRIMARY KEY (compilation_id, event_id)
     );
+
+CREATE TABLE IF NOT EXISTS comments (
+                                        id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                                        text      VARCHAR(2000) NOT NULL,
+    event_id  BIGINT        NOT NULL REFERENCES events (id) ON DELETE CASCADE,
+    author_id BIGINT        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created   TIMESTAMP     NOT NULL,
+    edited    TIMESTAMP
+    );
+
+CREATE INDEX IF NOT EXISTS idx_comments_event ON comments (event_id, created);
+CREATE INDEX IF NOT EXISTS idx_comments_author ON comments (author_id);
